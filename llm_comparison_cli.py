@@ -3,6 +3,7 @@
 
 import os
 import json
+import gradio as gr
 from openai import OpenAI
 import anthropic
 import google.generativeai as genai
@@ -58,28 +59,25 @@ def list_gemini_models():
         print(model.name, model.supported_generation_methods)
 
 
-# === Main Execution ===
-if __name__ == '__main__':
-    PROMPT = input("Enter your prompt: ")
+# === Gradio Interface ===
+def compare_llms(prompt):
+    openai_reply = get_openai_response(prompt)
+    claude_reply = get_claude_response(prompt)
+    gemini_reply = get_gemini_response(prompt)
 
-    print("\nGetting responses...\n")
+    return openai_reply, claude_reply, gemini_reply
 
-    openai_reply = get_openai_response(PROMPT)
-    claude_reply = get_claude_response(PROMPT)
-    gemini_reply = get_gemini_response(PROMPT)
+iface = gr.Interface(
+    fn=compare_llms,
+    inputs=gr.Textbox(label="Enter your prompt"),
+    outputs=[
+        gr.Textbox(label="ChatGPT (OpenAI)"),
+        gr.Textbox(label="Claude (Anthropic)"),
+        gr.Textbox(label="Gemini (Google)")
+    ],
+    title="LLM Comparison Tool",
+    description="Compare the responses from ChatGPT, Claude, and Gemini side by side."
+)
 
-    results = {
-        "Prompt": PROMPT,
-        "ChatGPT (OpenAI)": openai_reply,
-        "Claude (Anthropic)": claude_reply,
-        "Gemini (Google)": gemini_reply
-    }
-
-    print("--- LLM Comparison ---")
-    for model, reply in results.items():
-        print(f"\n{model} Response:\n{reply}\n")
-
-    with open("llm_comparison_output.json", "w", encoding="utf-8") as f:
-        json.dump(results, f, ensure_ascii=False, indent=4)
-
-    print("Output saved to llm_comparison_output.json")
+if __name__ == "__main__":
+    iface.launch()
