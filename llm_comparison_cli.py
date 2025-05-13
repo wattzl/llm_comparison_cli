@@ -3,6 +3,7 @@
 
 import os
 import json
+import csv
 import gradio as gr
 from openai import OpenAI
 import anthropic
@@ -67,17 +68,63 @@ def compare_llms(prompt):
 
     return openai_reply, claude_reply, gemini_reply
 
-iface = gr.Interface(
-    fn=compare_llms,
-    inputs=gr.Textbox(label="Enter your prompt"),
-    outputs=[
-        gr.Textbox(label="ChatGPT (OpenAI)"),
-        gr.Textbox(label="Claude (Anthropic)"),
-        gr.Textbox(label="Gemini (Google)")
-    ],
-    title="LLM Comparison Tool",
-    description="Compare the responses from ChatGPT, Claude, and Gemini side by side."
-)
+# Export to JSON file
+def export_json():
+    try:
+        with open("comparison_result.json", "w", encoding="utf-8") as f:
+            json.dump(comparison_result, f, ensure_ascii=False, indent=4)
+        return "comparison_result.json"
+    except Exception as e:
+        return f"Error exporting JSON: {e}"
 
+# Export to CSV file
+# === CSV Export Helpers ===
+def export_csv (prompt, response, model_name):
+    filename = f"{model_name.lower().replace(' ', '_')}_output.csv"
+    try:
+        with open(filename, "w", newline='', encoding="utf-8") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Prompt", "Response"])
+            writer.writerow([prompt, response])
+        return filename
+    except Exception as e:
+        return f"Error exporting CSV: {e}"
+
+# === Gradio UI ===
+# === Gradio UI ===
+with gr.Blocks() as iface:
+    gr.Markdown("# 🧠 LLM Comparison Tool")
+    gr.Markdown("Compare responses from ChatGPT, Claude, and Gemini.")
+
+    prompt_input = gr.Textbox(label="Enter your prompt", lines=2)
+    submit_btn = gr.Button("Compare")
+
+    def run_all_models(prompt):
+        openai = get_openai_response(prompt)
+        claude = get_claude_response(prompt)
+        gemini = get_gemini_response(prompt)
+        return openai, claude, gemini
+
+    with gr.Row():
+        with gr.Column():
+            openai_output = gr.Textbox(label="ChatGPT", lines=6)
+            openai_csv_btn = gr.Button("📄 Export CSV")
+            openai_file = gr.File(interactive=False, visible=False)
+
+        with gr.Column():
+            claude_output = gr.Textbox(label="Claude", lines=6)
+            claude_csv_btn = gr.Button("📄 Export CSV")
+            claude_file = gr.File(interactive=False, visible=False)
+
+        with gr.Column():
+            gemini_output = gr.Textbox(label="Gemini", lines=6)
+            gemini_csv_btn = gr.Button("📄 Export CSV")
+            gemini_file = gr.File(interactive=False, visible=False)
+
+    submit_btn.click(run_all_models, inputs=prompt_input, outputs=[openai_output, claude_output, gemini_output])
+
+    openai_csv_btn.click(lambda p, r: export_csv(p, r, "chatgpt_output.csv"), inputs=[prompt_input, openai_output], outputs=openai_file)
+    claude_csv_btn.click(lambda p, r: export_csv(p, r, "claude_output.csv"), inputs=[prompt_input, claude_output], outputs=claude_file)
+    gemini_csv_btn.click(lambda p, r: export_csv(p, r, "gemini_output.csv"), inputs=[prompt_input, gemini_output], outputs=gemini_file)
 if __name__ == "__main__":
     iface.launch()
